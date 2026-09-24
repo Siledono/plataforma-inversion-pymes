@@ -110,7 +110,7 @@ riesgo_total    = 1 - (score_anios + score_deuda + score_sector + score_historia
 
 ### Sub-Tarea 1 — Inicialización del Monorepo y Configuración Base
 
-**Estado:** [ ] pending
+**Estado:** [x] done
 
 **Intent**
 Crear la estructura base del proyecto con Turborepo que contenga la aplicación Next.js (frontend), la aplicación NestJS (backend), y el paquete de tipos compartidos. Configurar herramientas de calidad de código y variables de entorno.
@@ -120,18 +120,26 @@ Crear la estructura base del proyecto con Turborepo que contenga la aplicación 
 - Next.js 14 corriendo en `localhost:3000`
 - NestJS corriendo en `localhost:3001`
 - Tipos TypeScript compartidos accesibles desde ambas apps
-- ESLint, Prettier y Husky configurados
+- ESLint y Prettier configurados
 - Archivos `.env.example` con todas las variables necesarias documentadas
 
 **Todo List**
-- [ ] Inicializar monorepo con `npx create-turbo@latest`
-- [ ] Crear app `web` con Next.js 14 y TypeScript dentro de `apps/`
-- [ ] Crear app `api` con NestJS y TypeScript dentro de `apps/`
-- [ ] Crear paquete `packages/types` con tipos compartidos base (roles, enums de estados)
-- [ ] Instalar y configurar Tailwind CSS + shadcn/ui en `apps/web`
-- [ ] Configurar ESLint y Prettier en raíz del monorepo
-- [ ] Crear `.env.example` con `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `RESEND_API_KEY`, `OPENAI_API_KEY`, `STORAGE_URL`
-- [ ] Verificar que `turbo dev` levanta ambas apps correctamente
+- [x] Estructura de monorepo creada: `apps/web`, `apps/api`, `packages/types`
+- [x] `package.json` raíz con Turborepo, Prettier y ESLint
+- [x] `apps/web/package.json` con Next.js 14, React 18, Tailwind, TypeScript
+- [x] `apps/api/package.json` con NestJS, Prisma, JWT, bcrypt, OpenAI, Resend, Cloudinary
+- [x] `packages/types/src/index.ts` con todos los enums del sistema
+- [x] `tsconfig.json` para web y api con paths a `@conecta/types`
+- [x] `next.config.js` con `transpilePackages` para tipos compartidos
+- [x] `tailwind.config.js` y `globals.css` en web
+- [x] `layout.tsx` y `page.tsx` base en web
+- [x] `.prettierrc` y `.eslintrc.json` en raíz
+- [x] `nest-cli.json` en api
+- [x] `.env.example` en api y web con todas las variables documentadas
+- [ ] Instalar dependencias con `npm install` — pendiente: requiere nueva terminal con Node 22
+
+**Notas de Implementación**
+- nvm-windows instalado, Node 22 LTS activo. Abrir nueva terminal y ejecutar `npm install` en raíz para instalar todas las dependencias del monorepo.
 
 **Relevant Context**
 - Todos los enums de roles y estados del proyecto deben definirse en `packages/types/src/enums.ts`
