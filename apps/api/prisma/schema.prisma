@@ -24,9 +24,17 @@ model User {
   banco         Banco?
   inversor      Inversor?
   notificaciones Notificacion[]
-  tokensCreados  TokenRegistro[] @relation("TokensCreadosPorAdmin")
-  tokenUsado     TokenRegistro?  @relation("TokenUsadoPorUser")
+  tokensCreados  TokenRegistro[]        @relation("TokensCreadosPorAdmin")
+  tokenUsado     TokenRegistro?         @relation("TokenUsadoPorUser")
   refreshTokens  RefreshToken[]
+  mfaSecret      MfaSecret?
+  kycInversor    KycInversor?
+  dispositivos   DispositivoConocido[]
+  deviceTokens   DeviceVerificationToken[]
+  sesionBanco    SesionBanco[]
+  webAuthnCreds  WebAuthnCredential[]
+  eFirma         EFirmaEmpresa?
+  subRoles       SubRolEmpresa[]
 
   @@map("users")
 }
@@ -67,8 +75,9 @@ model Banco {
   rfc                 String   @unique
   suspendido          Boolean  @default(false)
 
-  user       User             @relation(fields: [userId], references: [id])
-  propuestas PropuestaBanco[]
+  user          User               @relation(fields: [userId], references: [id])
+  propuestas    PropuestaBanco[]
+  ipWhitelist   IpWhitelistBanco[]
 
   @@map("bancos")
 }
@@ -256,4 +265,185 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id])
 
   @@map("refresh_tokens")
+}
+
+// ─── MFA / TOTP ───────────────────────────────────────────────
+// Secreto TOTP vinculado a un usuario (EMPRESA e INVERSOR)
+
+model MfaSecret {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  secret    String                        // Base32, cifrado en reposo
+  habilitado Boolean @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("mfa_secrets")
+}
+
+// ─── KYC INVERSORES ───────────────────────────────────────────
+// Registro del proceso de verificación de identidad para inversores
+
+model KycInversor {
+  id              String    @id @default(uuid())
+  userId          String    @unique @map("user_id")
+  estado          KycEstado @default(pendiente)
+  documentoUrl    String?   @map("documento_url")   // INE / Pasaporte
+  livenessUrl     String?   @map("liveness_url")    // Prueba de vida
+  revisadoPorAdmin Boolean  @default(false) @map("revisado_por_admin")
+  notas           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("kyc_inversores")
+}
+
+enum KycEstado {
+  pendiente
+  en_revision
+  aprobado
+  rechazado
+}
+
+// ─── DISPOSITIVOS CONOCIDOS (INVERSORES) ──────────────────────
+// Para detección de dispositivos nuevos y envío de magic link
+
+model DispositivoConocido {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  deviceHash   String   @map("device_hash")  // Hash de User-Agent + fingerprint
+  nombre       String?                        // Ej. "Chrome en MacBook"
+  verificado   Boolean  @default(false)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, deviceHash])
+  @@map("dispositivos_conocidos")
+}
+
+// ─── TOKENS DE VERIFICACIÓN DE DISPOSITIVO ────────────────────
+// Magic link para confirmar dispositivo nuevo del inversor
+
+model DeviceVerificationToken {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  token      String   @unique @default(uuid())
+  deviceHash String   @map("device_hash")
+  expiraEn   DateTime @map("expira_en")
+  usado      Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("device_verification_tokens")
+}
+
+// ─── IP WHITELIST (BANCOS) ────────────────────────────────────
+// Rangos de IP institucionales autorizados por banco
+
+model IpWhitelistBanco {
+  id        String   @id @default(uuid())
+  bancoId   String   @map("banco_id")
+  cidr      String                      // Ej. "200.57.128.0/24"
+  descripcion String?
+  activa    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  banco Banco @relation(fields: [bancoId], references: [id])
+
+  @@map("ip_whitelist_banco")
+}
+
+// ─── INTENTOS DE LOGIN FALLIDOS ───────────────────────────────
+// Para bloqueo por fuerza bruta
+
+model LoginAttempt {
+  id        String   @id @default(uuid())
+  email     String
+  ip        String
+  exitoso   Boolean  @default(false)
+  bloqueado Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email, createdAt])
+  @@index([ip, createdAt])
+  @@map("login_attempts")
+}
+
+// ─── SESIONES BANCO (JWT DPoP corta duración) ─────────────────
+
+model SesionBanco {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  accessToken  String   @unique @map("access_token")   // Hash del JWT
+  ip           String
+  userAgent    String   @map("user_agent")
+  expiraEn     DateTime @map("expira_en")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("sesiones_banco")
+}
+
+// ─── PASSKEYS / WEBAUTHN (INVERSORES) ────────────────────────
+// Credenciales WebAuthn registradas por un inversor
+
+model WebAuthnCredential {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  credentialId   String   @unique @map("credential_id")  // Base64URL
+  publicKey      Bytes    @map("public_key")              // COSE key
+  counter        Int      @default(0)
+  deviceType     String?  @map("device_type")             // "platform" | "cross-platform"
+  nombre         String?                                   // Ej. "Face ID en iPhone"
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("webauthn_credentials")
+}
+
+// ─── E.FIRMA SAT (EMPRESAS) ───────────────────────────────────
+// Metadatos del certificado e.Firma vinculado a una empresa
+
+model EFirmaEmpresa {
+  id              String   @id @default(uuid())
+  userId          String   @unique @map("user_id")
+  rfcExtraido     String   @map("rfc_extraido")           // RFC del .cer
+  razonSocialExtraida String @map("razon_social_extraida")
+  serialCertificado String @map("serial_certificado")     // Número de serie del cert
+  vigenciaDesde   DateTime @map("vigencia_desde")
+  vigenciaHasta   DateTime @map("vigencia_hasta")
+  revocado        Boolean  @default(false)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("efirma_empresas")
+}
+
+// ─── SUB-ROLES EMPRESA ────────────────────────────────────────
+// RBAC interno dentro del perfil de empresa
+
+model SubRolEmpresa {
+  id        String          @id @default(uuid())
+  userId    String          @map("user_id")
+  subRol    SubRolEmpresaTipo @map("sub_rol")
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, subRol])
+  @@map("sub_roles_empresa")
+}
+
+enum SubRolEmpresaTipo {
+  lectura
+  firmante
+  operador
 }
