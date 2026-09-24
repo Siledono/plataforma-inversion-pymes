@@ -249,7 +249,7 @@ Implementar la gestión completa de proyectos de empresa: crear, publicar, edita
 
 ### Sub-Tarea 5 — Módulo de Propuestas de Banco y Solicitudes
 
-**Estado:** [ ] pending
+**Estado:** [x] done
 
 **Intent**
 Implementar el flujo completo de inversión bancaria: el banco publica propuestas fijas, las empresas envían solicitudes a esas propuestas, el banco acepta/rechaza/contraoferta, y la empresa responde a la contraoferta.
@@ -317,7 +317,7 @@ Implementar el flujo privado de negociación entre inversionista independiente y
 
 ### Sub-Tarea 7 — Módulo de Notificaciones
 
-**Estado:** [ ] pending
+**Estado:** [x] done
 
 **Intent**
 Implementar el sistema de notificaciones que dispara mensajes in-app y por email en los 3 eventos clave: oferta recibida, contraoferta recibida, proyecto aceptado.

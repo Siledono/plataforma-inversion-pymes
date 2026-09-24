@@ -1,4 +1,10 @@
-// Módulo bancos
-// Sub-Tarea 5 del plan — pendiente de implementación
-// Ver: plan-plataforma-inversion-pymes.md
-export {};
+import { Module } from '@nestjs/common'
+import { BancosService } from './bancos.service'
+import { BancosController } from './bancos.controller'
+
+@Module({
+  controllers: [BancosController],
+  providers: [BancosService],
+  exports: [BancosService],
+})
+export class BancosModule {}
