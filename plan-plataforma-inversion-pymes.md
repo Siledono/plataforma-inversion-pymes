@@ -178,7 +178,7 @@ Definir el esquema completo de la base de datos en Prisma reflejando todas las e
 
 ### Sub-Tarea 3 — Autenticación y Control de Roles (RBAC)
 
-**Estado:** [ ] pending
+**Estado:** [x] done
 
 **Intent**
 Implementar el sistema de autenticación con JWT (access token corto + refresh token largo), el control de acceso basado en roles, y el sistema de tokens de registro de un solo uso generados por el Admin. Ningún usuario puede registrarse sin un token válido.
