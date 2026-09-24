@@ -149,7 +149,7 @@ Crear la estructura base del proyecto con Turborepo que contenga la aplicación 
 
 ### Sub-Tarea 2 — Base de Datos: Esquema Prisma y Migraciones
 
-**Estado:** [ ] pending
+**Estado:** [x] done
 
 **Intent**
 Definir el esquema completo de la base de datos en Prisma reflejando todas las entidades del sistema, sus relaciones y restricciones. Ejecutar la migración inicial contra PostgreSQL.
