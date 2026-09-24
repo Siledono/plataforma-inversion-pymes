@@ -654,7 +654,7 @@ Lista de propuestas redactadas por el usuario. Cada entrada muestra: De / Para, 
 
 ### Sub-Tarea 13 — Autenticación Avanzada por Rol
 
-**Estado:** [ ] pending
+**Estado:** [x] done
 
 **Intent**
 Reemplazar el sistema de autenticación base JWT/bcrypt por los mecanismos de seguridad específicos de cada rol: e.Firma SAT para empresas, Passkeys/WebAuthn para inversores y mTLS con IP Whitelist para bancos. Agregar capas transversales de seguridad.
@@ -689,7 +689,7 @@ Reemplazar el sistema de autenticación base JWT/bcrypt por los mecanismos de se
 
 ### Sub-Tarea 14 — Frontend Completo (ST-10 ampliada)
 
-**Estado:** [ ] pending
+**Estado:** [x] done
 
 **Intent**
 Construir las 16 pantallas del diseño visual con Next.js 14, conectadas al backend completo, incluyendo los nuevos flujos de autenticación por rol, barra de búsqueda global, filtros del inicio, chat de negociación y ChatBot flotante.
