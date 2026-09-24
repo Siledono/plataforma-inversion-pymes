@@ -4,8 +4,13 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import api from '@/lib/api'
 
-// Pantalla 3 — Login diferenciado por rol
-type Rol = 'empresa' | 'inversor' | 'banco'
+type Rol = 'inversor' | 'empresa' | 'banco'
+
+const ROLES: { id: Rol; label: string; icon: string; hint: string }[] = [
+  { id: 'inversor', label: 'Cliente',  icon: '💼', hint: 'Inversionista independiente' },
+  { id: 'empresa',  label: 'Empresa',  icon: '🏢', hint: 'PyME o negocio' },
+  { id: 'banco',    label: 'Banco',    icon: '🏦', hint: 'Institución financiera' },
+]
 
 export default function LoginPage() {
   const router = useRouter()
@@ -39,43 +44,23 @@ export default function LoginPage() {
     setError('')
     try {
       let data: any
-
-      if (rol === 'empresa') {
-        if (!cerFile || !keyFile) throw new Error('Debes subir tu certificado .cer y llave .key')
-        const cerBase64 = await fileToBase64(cerFile)
-        const keyBase64 = await fileToBase64(keyFile)
-        data = await api.post('/auth/login/efirma', { email, cerBase64, keyBase64, keyPassword })
-      } else if (rol === 'banco') {
-        data = await api.post('/auth/login/banco', { email, password })
-      } else {
-        data = await api.post('/auth/login/inversor', { email, password })
-      }
-
-      if (data.requiereMfa) {
-        setMfaState({ requiere: true, userId: data.userId })
-        return
-      }
+      data = await api.post('/auth/login', { email, password })
+      if (data.requiereMfa) { setMfaState({ requiere: true, userId: data.userId }); return }
       if (data.requiereVerificacionDispositivo) {
-        setError('Hemos enviado un enlace de verificación a tu correo. Confirma el dispositivo y vuelve a iniciar sesión.')
+        setError('Hemos enviado un enlace de verificación a tu correo.')
         return
       }
-
       localStorage.setItem('accessToken', data.accessToken)
       localStorage.setItem('refreshToken', data.refreshToken)
       localStorage.setItem('user', JSON.stringify({ email, rol: data.rol }))
-
       const destinos: Record<string, string> = {
-        empresa: '/empresa/proyectos',
-        banco: '/banco/solicitudes',
-        inversor: '/inversor/explorar',
-        admin: '/admin/estadisticas',
+        empresa: '/empresa/proyectos', banco: '/banco/solicitudes',
+        inversor: '/inversor/explorar', admin: '/admin/estadisticas',
       }
       router.push(destinos[data.rol] ?? '/')
     } catch (e: any) {
       setError(e.message ?? 'Error al iniciar sesión')
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   const handleTotp = async (e: React.FormEvent) => {
@@ -92,37 +77,28 @@ export default function LoginPage() {
         inversor: '/inversor/explorar', admin: '/admin/estadisticas',
       }
       router.push(destinos[data.rol] ?? '/')
-    } catch (e: any) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
-    }
+    } catch (e: any) { setError(e.message) }
+    finally { setLoading(false) }
   }
 
+  /* ── MFA screen ─────── */
   if (mfaState?.requiere) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">Verificación MFA</h2>
-          <p className="text-gray-500 text-sm text-center mb-6">
-            Ingresa el código de 6 dígitos de tu aplicación autenticadora
-          </p>
-          {error && <div className="bg-red-50 text-red-700 rounded-lg p-3 text-sm mb-4">{error}</div>}
+      <div className="min-h-screen bg-hero-grad flex items-center justify-center px-4" style={{ paddingTop: '4px' }}>
+        <div className="bg-white rounded-3xl shadow-card-lg p-8 w-full max-w-sm">
+          <div className="text-center mb-6">
+            <div className="w-14 h-14 bg-gov-navy rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <span className="text-white text-2xl">🔐</span>
+            </div>
+            <h2 className="text-xl font-bold text-gov-dark">Verificación MFA</h2>
+            <p className="text-gov-muted text-sm mt-1">Ingresa el código de 6 dígitos</p>
+          </div>
+          {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-sm mb-4 flex gap-2"><span>⚠️</span>{error}</div>}
           <form onSubmit={handleTotp} className="space-y-4">
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              placeholder="000000"
-              value={totpCode}
-              onChange={(e) => setTotpCode(e.target.value)}
-              className="w-full border rounded-lg px-4 py-3 text-center text-2xl tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              type="submit"
-              disabled={loading || totpCode.length !== 6}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
-            >
+            <input type="text" inputMode="numeric" maxLength={6} placeholder="000000"
+              value={totpCode} onChange={(e) => setTotpCode(e.target.value)}
+              className="input text-center text-2xl tracking-[0.5em] font-mono" />
+            <button type="submit" disabled={loading || totpCode.length !== 6} className="btn-primary w-full py-3">
               {loading ? 'Verificando...' : 'Verificar'}
             </button>
           </form>
@@ -132,123 +108,109 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-600 rounded-full mb-3">
-            <span className="text-white font-bold">CI</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-800">Iniciar Sesión</h1>
-          <p className="text-gray-500 text-sm mt-1">Conecta Inversión — Secretaría de Economía</p>
-        </div>
+    <div className="min-h-screen bg-hero-grad flex flex-col" style={{ paddingTop: '4px' }}>
 
-        {/* Selector de rol */}
-        <div className="flex gap-2 mb-6 bg-gray-100 rounded-lg p-1">
-          {(['inversor', 'empresa', 'banco'] as Rol[]).map((r) => (
-            <button
-              key={r}
-              onClick={() => setRol(r)}
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors capitalize ${
-                rol === r ? 'bg-white shadow text-blue-700' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {r === 'inversor' ? 'Inversor' : r === 'empresa' ? 'Empresa' : 'Banco'}
-            </button>
-          ))}
-        </div>
-
-        {error && <div className="bg-red-50 text-red-700 rounded-lg p-3 text-sm mb-4">{error}</div>}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Correo electrónico
-            </label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="correo@empresa.com"
-            />
-          </div>
-
-          {/* Empresa usa e.Firma */}
-          {rol === 'empresa' ? (
-            <>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-                <strong>🔐 e.Firma SAT</strong> — Sube tu certificado digital para autenticarte de forma segura.
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Certificado público (.cer)</label>
-                <input
-                  type="file"
-                  accept=".cer"
-                  required
-                  onChange={(e) => setCerFile(e.target.files?.[0] ?? null)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Llave privada (.key)</label>
-                <input
-                  type="file"
-                  accept=".key"
-                  required
-                  onChange={(e) => setKeyFile(e.target.files?.[0] ?? null)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña de la llave privada</label>
-                <input
-                  type="password"
-                  required
-                  value={keyPassword}
-                  onChange={(e) => setKeyPassword(e.target.value)}
-                  className="w-full border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Contraseña de tu e.Firma"
-                />
-              </div>
-            </>
-          ) : (
-            /* Banco e Inversor usan contraseña */
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder={rol === 'banco' ? 'Contraseña institucional' : 'Contraseña (mínimo 12 caracteres)'}
-              />
-              {rol === 'banco' && (
-                <p className="text-xs text-gray-500 mt-1">
-                  🔒 Tu acceso está validado por IP institucional autorizada
-                </p>
-              )}
+      {/* Navbar mínima */}
+      <header className="border-b border-white/8">
+        <div className="max-w-6xl mx-auto px-6 py-3.5 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center">
+              <span className="text-white font-black text-xs">DM</span>
             </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {loading ? 'Ingresando...' : 'Iniciar Sesión'}
-          </button>
-        </form>
-
-        <div className="text-center mt-4 text-sm text-gray-500">
-          ¿No tienes cuenta?{' '}
-          <Link href="/registro" className="text-blue-600 hover:underline">
-            Regístrate con tu token
+            <span className="text-white font-bold text-sm">DeMex</span>
+          </Link>
+          <Link href="/registro" className="text-white/60 text-sm hover:text-white transition-colors font-medium">
+            Crear cuenta →
           </Link>
         </div>
-      </div>
+      </header>
+
+      <main className="flex-1 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+
+          {/* Card principal */}
+          <div className="bg-white rounded-3xl shadow-card-lg overflow-hidden">
+            {/* Franja tricolor top */}
+            <div className="h-1 bg-tricolor" />
+
+            <div className="p-8">
+              {/* Header */}
+              <div className="text-center mb-7">
+                <div className="w-14 h-14 bg-gov-dark rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md">
+                  <span className="text-white font-black text-lg tracking-tight">DM</span>
+                </div>
+                <h1 className="text-2xl font-black text-gov-dark">Iniciar Sesión</h1>
+                <p className="text-gov-muted text-sm mt-1">Plataforma DeMex — Secretaría de Economía</p>
+              </div>
+
+              {/* Selector de rol */}
+              <div className="grid grid-cols-3 gap-2 mb-6 bg-slate-50 rounded-2xl p-1.5 border border-slate-200">
+                {ROLES.map((r) => (
+                  <button key={r.id} onClick={() => setRol(r.id)}
+                    className={`flex flex-col items-center py-3 px-1 rounded-xl transition-all text-xs font-semibold gap-1
+                      ${rol === r.id
+                        ? 'bg-white shadow-sm text-gov-navy border border-slate-200'
+                        : 'text-gov-muted hover:text-gov-dark'}`}>
+                    <span className="text-xl">{r.icon}</span>
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-sm mb-5 flex items-start gap-2">
+                  <span className="shrink-0">⚠️</span><span>{error}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="label">Correo electrónico</label>
+                  <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                    className="input" placeholder="correo@empresa.com" />
+                </div>
+
+                <div>
+                  <label className="label">Contraseña</label>
+                  <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+                    className="input"
+                    placeholder={rol === 'banco' ? 'Contraseña institucional' : 'Tu contraseña'} />
+                  {rol === 'banco' && (
+                    <p className="text-xs text-gov-muted mt-1.5 flex items-center gap-1">
+                      <span>🔒</span> Acceso validado por IP institucional autorizada
+                    </p>
+                  )}
+                </div>
+
+                <button type="submit" disabled={loading}
+                  className="btn-primary w-full py-3 mt-1 text-base">
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                      </svg>
+                      Ingresando...
+                    </span>
+                  ) : 'Iniciar Sesión'}
+                </button>
+              </form>
+
+              <div className="text-center mt-5 text-sm text-gov-muted">
+                ¿No tienes cuenta?{' '}
+                <Link href="/registro" className="text-gov-blue font-semibold hover:underline">
+                  Regístrate con tu código
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Nota de seguridad */}
+          <p className="text-center text-xs text-white/40 mt-4 flex items-center justify-center gap-1.5">
+            <span>🔒</span> Sitio oficial del Gobierno de México. Verifica el candado en tu navegador.
+          </p>
+        </div>
+      </main>
     </div>
   )
 }
