@@ -37,7 +37,6 @@ export class ProyectosService {
         montoMax: dto.montoMax,
         tipoFinanciamiento: dto.tipoFinanciamiento as any,
         porcentajeAcciones: dto.porcentajeAcciones,
-        documentoUrl: dto.documentoUrl,
         estado: 'borrador',
         totalInvertido: 0,
       },

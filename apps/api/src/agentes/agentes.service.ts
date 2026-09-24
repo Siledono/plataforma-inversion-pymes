@@ -253,16 +253,13 @@ export class AgentesService {
   private async fnListarPropuestasActivas() {
     return this.prisma.propuestaBanco.findMany({
       where: { activa: true },
-      include: {
-        banco: { select: { nombreInstitucional: true } },
-      },
       select: {
         id: true,
         nombre: true,
         montoFijo: true,
         tasaInteres: true,
         requisitos: true,
-        banco: true,
+        banco: { select: { nombreInstitucional: true } },
       },
     })
   }

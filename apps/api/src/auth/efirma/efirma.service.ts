@@ -84,8 +84,12 @@ export class EFirmaService {
       // Intentar desencriptar la llave privada con la contraseña
       let privateKey: forge.pki.PrivateKey
       try {
-        const asn1 = forge.asn1.fromDer(forge.util.createBuffer(keyBuffer))
-        const encryptedPkInfo = forge.pki.encryptedPrivateKeyFromAsn1(asn1)
+        // Convertir el Buffer a ByteStringBuffer para node-forge
+        const forgeBuffer = forge.util.createBuffer(keyBuffer.toString('binary'))
+        const asn1 = forge.asn1.fromDer(forgeBuffer)
+        const encryptedPkInfo = forge.pki.encryptedPrivateKeyFromPem(
+          forge.pki.encryptedPrivateKeyToPem(asn1 as any)
+        )
         const pkInfo = forge.pki.decryptPrivateKeyInfo(encryptedPkInfo, password)
         if (!pkInfo) throw new Error('contraseña incorrecta')
         privateKey = forge.pki.privateKeyFromAsn1(pkInfo)
@@ -146,8 +150,11 @@ export class EFirmaService {
    */
   firmarChallenge(keyBuffer: Buffer, password: string, challenge: string): string {
     try {
-      const asn1 = forge.asn1.fromDer(forge.util.createBuffer(keyBuffer))
-      const encryptedPkInfo = forge.pki.encryptedPrivateKeyFromAsn1(asn1)
+      const forgeBuffer = forge.util.createBuffer(keyBuffer.toString('binary'))
+      const asn1 = forge.asn1.fromDer(forgeBuffer)
+      const encryptedPkInfo = forge.pki.encryptedPrivateKeyFromPem(
+        forge.pki.encryptedPrivateKeyToPem(asn1 as any)
+      )
       const pkInfo = forge.pki.decryptPrivateKeyInfo(encryptedPkInfo, password)
       const privateKey = forge.pki.privateKeyFromAsn1(pkInfo!) as forge.pki.rsa.PrivateKey
 

@@ -35,6 +35,7 @@ model User {
   webAuthnCreds  WebAuthnCredential[]
   eFirma         EFirmaEmpresa?
   subRoles       SubRolEmpresa[]
+  webauthnChallenge String?             @map("webauthn_challenge")
 
   @@map("users")
 }
