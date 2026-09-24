@@ -1,0 +1,259 @@
+// Schema de Prisma — Conecta Inversión
+// Ejecutar: npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── USUARIOS ───────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  rol          UserRol
+  activo       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  empresa       Empresa?
+  banco         Banco?
+  inversor      Inversor?
+  notificaciones Notificacion[]
+  tokensCreados  TokenRegistro[] @relation("TokensCreadosPorAdmin")
+  tokenUsado     TokenRegistro?  @relation("TokenUsadoPorUser")
+  refreshTokens  RefreshToken[]
+
+  @@map("users")
+}
+
+enum UserRol {
+  empresa
+  banco
+  inversor
+  admin
+}
+
+// ─── PERFILES ───────────────────────────────────────────────
+
+model Empresa {
+  id              String   @id @default(uuid())
+  userId          String   @unique @map("user_id")
+  nombreEmpresa   String   @map("nombre_empresa")
+  rfc             String   @unique
+  sectorScian     String   @map("sector_scian")
+  aniosOperacion  Int      @map("anios_operacion")
+  numEmpleados    Int      @map("num_empleados")
+  ingresosAnuales Decimal  @map("ingresos_anuales")
+  deudasActuales  Decimal  @map("deudas_actuales")
+  documentoUrl    String?  @map("documento_url")
+
+  user      User        @relation(fields: [userId], references: [id])
+  proyectos Proyecto[]
+
+  @@map("empresas")
+}
+
+model Banco {
+  id                  String   @id @default(uuid())
+  userId              String   @unique @map("user_id")
+  nombreInstitucional String   @map("nombre_institucional")
+  claveBanxico        String   @map("clave_banxico")
+  contactoGestor      String   @map("contacto_gestor")
+  rfc                 String   @unique
+  suspendido          Boolean  @default(false)
+
+  user       User             @relation(fields: [userId], references: [id])
+  propuestas PropuestaBanco[]
+
+  @@map("bancos")
+}
+
+model Inversor {
+  id               String             @id @default(uuid())
+  userId           String             @unique @map("user_id")
+  nombreCompleto   String             @map("nombre_completo")
+  rfcCurp          String             @map("rfc_curp")
+  capitalDisponible Decimal           @map("capital_disponible")
+  preferencia      TipoFinanciamiento
+  sectoresInteres  String             @map("sectores_interes")
+
+  user         User          @relation(fields: [userId], references: [id])
+  negociaciones Negociacion[]
+
+  @@map("inversores")
+}
+
+// ─── PROYECTOS ───────────────────────────────────────────────
+
+model Proyecto {
+  id                  String            @id @default(uuid())
+  empresaId           String            @map("empresa_id")
+  titulo              String
+  descripcion         String
+  montoMin            Decimal           @map("monto_min")
+  montoMax            Decimal           @map("monto_max")
+  porcentajeAcciones  Decimal?          @map("porcentaje_acciones")
+  tipoFinanciamiento  TipoFinanciamiento @map("tipo_financiamiento")
+  estado              EstadoProyecto    @default(borrador)
+  totalInvertido      Decimal           @default(0) @map("total_invertido")
+  createdAt           DateTime          @default(now()) @map("created_at")
+
+  empresa           Empresa            @relation(fields: [empresaId], references: [id])
+  solicitudesBanco  SolicitudBanco[]
+  negociaciones     Negociacion[]
+
+  @@map("proyectos")
+}
+
+enum EstadoProyecto {
+  borrador
+  publicado
+  en_revision_banco
+  financiado_banco
+  financiado_inversor
+  financiado_total
+  eliminado
+}
+
+enum TipoFinanciamiento {
+  acciones
+  prestamo
+  ambos
+}
+
+// ─── PROPUESTAS Y SOLICITUDES DE BANCO ───────────────────────
+
+model PropuestaBanco {
+  id          String   @id @default(uuid())
+  bancoId     String   @map("banco_id")
+  nombre      String
+  requisitos  String
+  montoFijo   Decimal  @map("monto_fijo")
+  tasaInteres Decimal  @map("tasa_interes")
+  activa      Boolean  @default(true)
+
+  banco      Banco            @relation(fields: [bancoId], references: [id])
+  solicitudes SolicitudBanco[]
+
+  @@map("propuestas_banco")
+}
+
+model SolicitudBanco {
+  id                  String               @id @default(uuid())
+  proyectoId          String               @map("proyecto_id")
+  propuestaBancoId    String               @map("propuesta_banco_id")
+  estado              EstadoSolicitudBanco @default(en_revision)
+  contraofertaDetalle String?              @map("contraoferta_detalle")
+  expiraEn            DateTime?            @map("expira_en")
+  createdAt           DateTime             @default(now()) @map("created_at")
+
+  proyecto      Proyecto       @relation(fields: [proyectoId], references: [id])
+  propuestaBanco PropuestaBanco @relation(fields: [propuestaBancoId], references: [id])
+
+  @@map("solicitudes_banco")
+}
+
+enum EstadoSolicitudBanco {
+  en_revision
+  aceptada
+  rechazada
+  contraoferta_pendiente
+  expirada
+}
+
+// ─── NEGOCIACIONES INVERSOR ───────────────────────────────────
+
+model Negociacion {
+  id                String            @id @default(uuid())
+  proyectoId        String            @map("proyecto_id")
+  inversorId        String            @map("inversor_id")
+  montoOfertado     Decimal           @map("monto_ofertado")
+  montoContraoferta Decimal?          @map("monto_contraoferta")
+  tipo              TipoFinanciamiento
+  estado            EstadoNegociacion @default(pendiente)
+  expiraEn          DateTime?         @map("expira_en")
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  proyecto Proyecto @relation(fields: [proyectoId], references: [id])
+  inversor Inversor @relation(fields: [inversorId], references: [id])
+
+  @@map("negociaciones")
+}
+
+enum EstadoNegociacion {
+  pendiente
+  contraoferta
+  aceptada
+  rechazada
+  expirada
+}
+
+// ─── NOTIFICACIONES ──────────────────────────────────────────
+
+model Notificacion {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  mensaje   String
+  tipo      TipoNotificacion
+  leida     Boolean          @default(false)
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notificaciones")
+}
+
+enum TipoNotificacion {
+  oferta_recibida
+  contraoferta
+  proyecto_aceptado
+}
+
+// ─── CMS ─────────────────────────────────────────────────────
+
+model CmsContenido {
+  id         String   @id @default(uuid())
+  adminId    String   @map("admin_id")
+  titulo     String
+  cuerpo     String
+  archivoUrl String?  @map("archivo_url")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("cms_contenido")
+}
+
+// ─── TOKENS DE REGISTRO ──────────────────────────────────────
+
+model TokenRegistro {
+  id             String         @id @default(uuid())
+  token          String         @unique @default(uuid())
+  rolDestino     UserRol        @map("rol_destino")
+  usado          Boolean        @default(false)
+  creadoPorAdminId String       @map("creado_por_admin_id")
+  expiraEn       DateTime       @map("expira_en")
+  usadoPorUserId String?        @unique @map("usado_por_user_id")
+
+  creadoPorAdmin User  @relation("TokensCreadosPorAdmin", fields: [creadoPorAdminId], references: [id])
+  usadoPorUser   User? @relation("TokenUsadoPorUser", fields: [usadoPorUserId], references: [id])
+
+  @@map("tokens_registro")
+}
+
+// ─── REFRESH TOKENS ──────────────────────────────────────────
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @map("token_hash")
+  expiraEn  DateTime @map("expira_en")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("refresh_tokens")
+}
