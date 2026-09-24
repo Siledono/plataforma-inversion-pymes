@@ -284,7 +284,7 @@ Implementar el flujo completo de inversión bancaria: el banco publica propuesta
 
 ### Sub-Tarea 6 — Módulo de Negociaciones con Inversionista Independiente
 
-**Estado:** [ ] pending
+**Estado:** [x] done
 
 **Intent**
 Implementar el flujo privado de negociación entre inversionista independiente y empresa: el inversionista hace una oferta sobre un proyecto publicado, la empresa puede aceptar o hacer una contraoferta única, y el inversionista responde a esa contra.
@@ -347,7 +347,7 @@ Implementar el sistema de notificaciones que dispara mensajes in-app y por email
 
 ### Sub-Tarea 8 — CMS de la Secretaría de Economía
 
-**Estado:** [ ] pending
+**Estado:** [x] done
 
 **Intent**
 Implementar el módulo de contenido informativo de la Secretaría de Economía, accesible para lectura pública y editable solo por el Admin. Incluye soporte para documentos descargables (PDFs, convocatorias).
@@ -377,7 +377,7 @@ Implementar el módulo de contenido informativo de la Secretaría de Economía, 
 
 ### Sub-Tarea 9 — Agentes de IA por Rol
 
-**Estado:** [ ] pending
+**Estado:** [x] done
 
 **Intent**
 Implementar los 4 agentes de IA conversacionales (Empresa, Banco, Inversionista Independiente, Admin) con acceso controlado a datos según el rol, incluyendo el simulador de riesgo para los agentes de banco e inversor.
@@ -449,7 +449,7 @@ Construir las 4 interfaces de usuario correspondientes a cada rol, con navegaci�
 
 ### Sub-Tarea 11 — Panel de Admin y Estadísticas Globales
 
-**Estado:** [ ] pending
+**Estado:** [x] done
 
 **Intent**
 Implementar el panel de administración completo para el rol Admin de la Secretaría de Economía, incluyendo gestión de bancos, edición de propuestas bancarias, CMS y vista de estadísticas generales de la plataforma.
