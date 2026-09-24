@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config'
 import { ScheduleModule } from '@nestjs/schedule'
 import { PrismaModule } from './prisma/prisma.module'
 import { AuthModule } from './auth/auth.module'
+import { ProyectosModule } from './proyectos/proyectos.module'
 
 @Module({
   imports: [
@@ -10,8 +11,8 @@ import { AuthModule } from './auth/auth.module'
     ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
+    ProyectosModule,
     // Los módulos de dominio se irán agregando en cada sub-tarea:
-    // ProyectosModule — Sub-Tarea 4
     // BancosModule    — Sub-Tarea 5
     // NegociacionesModule — Sub-Tarea 6
     // NotificacionesModule — Sub-Tarea 7

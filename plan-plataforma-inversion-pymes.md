@@ -217,7 +217,7 @@ Implementar el sistema de autenticación con JWT (access token corto + refresh t
 
 ### Sub-Tarea 4 — Módulo de Proyectos (CRUD)
 
-**Estado:** [ ] pending
+**Estado:** [x] done
 
 **Intent**
 Implementar la gestión completa de proyectos de empresa: crear, publicar, editar, eliminar y listar proyectos. Incluir las reglas de visibilidad de datos financieros privados.
