@@ -47,20 +47,22 @@ Plataforma web gubernamental que conecta a empresas pequeñas y medianas (PyMEs)
 ### Tablas principales
 
 ```
-users            — id, email, password_hash, rol (empresa|banco|inversor|admin), activo
-empresas         — id, user_id, rfc, razon_social, sector_scian, anios_operacion, num_empleados,
-                   ingresos_anuales, deudas_actuales, documento_url
-bancos           — id, user_id, nombre_institucional, clave_banxico, contacto_gestor, suspendido
-inversores       — id, user_id, nombre_completo, rfc_curp, capital_disponible,
-                   preferencia (acciones|prestamo|ambos), sectores_interes
-proyectos        — id, empresa_id, titulo, descripcion, monto_min, monto_max,
-                   porcentaje_acciones, tipo_financiamiento, estado (ver estados), total_invertido
-propuestas_banco — id, banco_id, nombre, requisitos, monto_fijo, tasa_interes, activa
+users             — id, email, password_hash, rol (empresa|banco|inversor|admin), activo
+empresas          — id, user_id, rfc, razon_social, sector_scian, anios_operacion, num_empleados,
+                    ingresos_anuales, deudas_actuales, documento_url
+bancos            — id, user_id, nombre_institucional, clave_banxico, contacto_gestor, suspendido
+inversores        — id, user_id, nombre_completo, rfc_curp, capital_disponible,
+                    preferencia (acciones|prestamo|ambos), sectores_interes
+proyectos         — id, empresa_id, titulo, descripcion, monto_min, monto_max,
+                    porcentaje_acciones, tipo_financiamiento, estado (ver estados), total_invertido
+propuestas_banco  — id, banco_id, nombre, requisitos, monto_fijo, tasa_interes, activa
 solicitudes_banco — id, proyecto_id, propuesta_banco_id, estado, contraoferta_detalle, expira_en
-negociaciones    — id, proyecto_id, inversor_id, monto_ofertado, monto_contraoferta,
-                   tipo, estado, expira_en
-notificaciones   — id, user_id, mensaje, tipo, leida, created_at
-cms_contenido    — id, admin_id, titulo, cuerpo, archivo_url, created_at
+negociaciones     — id, proyecto_id, inversor_id, monto_ofertado, monto_contraoferta,
+                    tipo, estado, expira_en
+notificaciones    — id, user_id, mensaje, tipo, leida, created_at
+cms_contenido     — id, admin_id, titulo, cuerpo, archivo_url, created_at
+tokens_registro   — id, token (uuid único), rol_destino (empresa|banco|inversor), usado (bool),
+                    creado_por_admin_id, expira_en, used_by_user_id (nullable)
 ```
 
 ### Estados válidos de un Proyecto
@@ -85,8 +87,10 @@ cms_contenido    — id, admin_id, titulo, cuerpo, archivo_url, created_at
 6. Los datos financieros privados (ingresos, deudas) solo son visibles para quien recibe una solicitud activa.
 7. El total invertido en un proyecto es información pública.
 8. El banco no puede modificar sus montos; solo el Admin puede editar los parámetros de las propuestas bancarias.
-9. El Admin crea y suspende cuentas de bancos; los bancos no se auto-registran.
-10. Los inversionistas independientes y las empresas se auto-registran.
+9. El Admin crea y suspende cuentas de bancos.
+10. Ningún rol puede registrarse sin un token de registro válido generado por el Admin.
+11. Cada token de registro es de un solo uso, tiene rol destino fijo y expira en 48 horas.
+12. El Admin genera tokens desde su panel y los entrega al banco, empresa o inversionista por fuera de la plataforma (email, mensaje, etc).
 
 ### Fórmula del Simulador de Riesgo
 ```
@@ -169,29 +173,37 @@ Definir el esquema completo de la base de datos en Prisma reflejando todas las e
 **Estado:** [ ] pending
 
 **Intent**
-Implementar el sistema de autenticación con JWT (access token corto + refresh token largo) y el control de acceso basado en roles que proteja cada endpoint del API según el rol del usuario autenticado.
+Implementar el sistema de autenticación con JWT (access token corto + refresh token largo), el control de acceso basado en roles, y el sistema de tokens de registro de un solo uso generados por el Admin. Ningún usuario puede registrarse sin un token válido.
 
 **Expected Outcomes**
-- Endpoints funcionales: `POST /auth/register` (empresa e inversor independiente), `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`
+- Endpoints funcionales: `POST /auth/register` (requiere token), `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`
 - Guard de autenticación JWT aplicado globalmente en NestJS
 - Decorator `@Roles()` funcional que restringe endpoints por rol
-- Admin no puede auto-registrarse; su cuenta la crea otro admin o es la cuenta semilla
-- Bancos no pueden auto-registrarse; solo el Admin puede crearlos
+- Admin puede generar tokens de registro con rol destino fijo (empresa, banco o inversor)
+- Cada token es de un solo uso y expira en 48 horas
+- El registro valida el token, crea el usuario con el rol del token y marca el token como usado
+- Admin no puede auto-registrarse; su cuenta es la cuenta semilla del sistema
+- Un banco suspendido recibe `401` al intentar hacer login
 
 **Todo List**
 - [ ] Instalar `@nestjs/jwt`, `@nestjs/passport`, `passport-jwt`, `bcrypt` en `apps/api`
 - [ ] Crear módulo `AuthModule` con servicio, controlador y estrategia JWT
-- [ ] Implementar `register` solo para roles `empresa` e `inversor`
+- [ ] Agregar modelo `TokenRegistro` en Prisma: `id`, `token` (uuid), `rol_destino`, `usado`, `creado_por_admin_id`, `expira_en`, `used_by_user_id`
+- [ ] Crear endpoint `POST /admin/tokens` — solo Admin; genera un token uuid con rol destino y expiración de 48hrs
+- [ ] Crear endpoint `GET /admin/tokens` — solo Admin; lista tokens generados y su estado (usado/activo/expirado)
+- [ ] Implementar `POST /auth/register` — recibe `{ token, email, password, ...datosPerfil }`; valida que el token exista, no esté usado, no haya expirado y asigna el rol del token al nuevo usuario
+- [ ] Al completar registro: marcar token como `usado: true` y guardar `used_by_user_id`
 - [ ] Implementar `login` que retorna `access_token` (15min) y `refresh_token` (7 días)
 - [ ] Crear `JwtAuthGuard` global y `RolesGuard` con decorator `@Roles(...UserRol[])`
-- [ ] Crear endpoint `POST /admin/bancos` protegido con `@Roles(UserRol.ADMIN)` para crear cuentas de banco
 - [ ] Crear endpoint `PATCH /admin/bancos/:id/suspender` para suspender/reactivar bancos
-- [ ] Escribir tests de integración para login, registro, y acceso denegado por rol
+- [ ] Escribir tests de integración para: registro con token válido, registro con token inválido/expirado/usado, login, acceso denegado por rol, banco suspendido
 
 **Relevant Context**
 - El `UserRol` enum: `empresa | banco | inversor | admin`
 - Los refresh tokens deben almacenarse hasheados en BD para poder invalidarlos en logout
 - Un banco suspendido (`suspendido: true`) debe recibir `401` al intentar hacer login
+- El Admin entrega el token al usuario por fuera de la plataforma (email, mensaje directo, etc.)
+- El panel Admin debe mostrar un botón "Generar token" con selector de rol y mostrar el token generado para que el Admin pueda copiarlo y enviarlo
 
 ---
 
