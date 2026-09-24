@@ -33,9 +33,12 @@ Plataforma web gubernamental que conecta a empresas pequeñas y medianas (PyMEs)
 | **Estilos** | Tailwind CSS + shadcn/ui | Componentes accesibles, rápidos de implementar, look institucional |
 | **Backend** | NestJS + TypeScript | Arquitectura modular por dominio, decoradores para RBAC, ideal para proyectos de escala mediana-grande |
 | **Base de datos** | PostgreSQL + Prisma ORM | Relaciones complejas entre roles, migraciones controladas, tipado desde el esquema |
-| **Autenticación** | JWT (access + refresh tokens) + bcrypt | Estándar seguro, sin dependencias externas de terceros |
-| **Storage** | Cloudinary o AWS S3 | PDFs de documentos empresariales, convocatorias del CMS |
-| **Email** | Resend | API simple, plantillas React, excelente DX |
+| **Autenticación Empresa** | e.Firma SAT (PKI) + TOTP MFA | Certificado .cer/.key, validación cadena de confianza SAT, RBAC interno |
+| **Autenticación Inversor** | Passkeys/WebAuthn + TOTP MFA | Login biométrico o email+contraseña, verificación de dispositivo conocido, KYC |
+| **Autenticación Banco** | mTLS + IP Whitelist + JWT DPoP | Autenticación mutua TLS, sesiones de 3-5 min, bloqueo por cambio de IP |
+| **Seguridad transversal** | TLS 1.3 + HSTS + Rate limiting | Protección fuerza bruta, autenticación adaptativa, cifrado en tránsito y reposo |
+| **Storage** | Cloudinary o AWS S3 | PDFs de documentos empresariales, convocatorias del CMS, certificados e.Firma |
+| **Email** | Resend | API simple, plantillas React, magic links de verificación de dispositivo |
 | **Agentes IA** | OpenAI API (GPT-4o) con function calling | Contexto dinámico por rol, function calling para consultar BD en tiempo real |
 | **Deploy** | Railway (backend + BD) + Vercel (frontend) | Costo bajo, CI/CD automático, adecuado para fase gubernamental inicial |
 | **Monorepo** | Turborepo | Comparte tipos TypeScript entre frontend y backend desde el inicio |
@@ -505,20 +508,239 @@ Agregar validación de datos en todos los endpoints, escribir tests de integraci
 
 ---
 
-## Orden de Ejecución Recomendado
+---
+
+## Documentación de Pantallas — Diseño Visual
+
+### Herramientas Globales (presentes en todas las pantallas con sesión activa)
+
+**Barra de búsqueda**
+Ubicada arriba a la derecha. Permite buscar bancos por nombre institucional y proyectos por título o sector. Muestra resultados en tiempo real mientras el usuario escribe.
+
+**Barra de navegación**
+4 botones:
+- **Inicio** — regresa a la pantalla principal o la actualiza con contenido reciente
+- **Perfil** — accede al perfil del usuario autenticado
+- **Nosotros** — información sobre la plataforma, colaboradores y objetivo
+- **Contacto** — teléfono, email y redes sociales de la plataforma
+
+---
+
+### Pantalla 1 — Selección de Rol (única vez al registrarse)
+Aparece una sola vez inmediatamente después del primer registro. Presenta 3 opciones visuales con imagen representativa: **Banco**, **Empresa** y **Cliente**. Al seleccionar, la pantalla no vuelve a mostrarse y el correo queda vinculado al rol permanentemente. El token que recibió el usuario ya define el rol; esta pantalla lo confirma visualmente.
+
+### Pantalla 2 — Landing Pública
+Pantalla de bienvenida con título "Desarrollo de Empresas de México" y texto "¿Tienes dificultades para encontrar una primera inversión?". Contiene:
+- Botón **Registrarme** → pantalla de creación de cuenta
+- Botón **Iniciar Sesión** → pantalla de login
+- Barra de navegación accesible sin login (Nosotros, Contacto)
+- Fondo personalizable por el programador
+
+### Pantalla 3 — Iniciar Sesión
+Dos variantes según rol:
+- **Empresa y Banco** — solicita ID y contraseña (e.Firma o credencial institucional)
+- **Inversor** — solicita correo electrónico y contraseña (o Passkey biométrico)
+
+Incluye enlaces: *¿Olvidaste tu contraseña?* y *¿Olvidaste tu usuario?*
+
+### Pantalla 4 — Crear Cuenta
+Formulario con campos según rol:
+
+**Empresa y Banco:** RFC, Dirección, Teléfono, Correo electrónico, Código de creación de cuenta (token del Admin), Dirección de la empresa/institución
+
+**Inversor:** Correo electrónico, Contraseña, RFC, Teléfono, Ciudad
+
+### Pantalla 5 — Inicio (dashboard con sesión activa)
+Pantalla principal del dashboard con 3 filtros tipo botón que se iluminan al seleccionarse:
+- **Empresa** — muestra proyectos publicados por empresas buscando inversión
+- **Banco** — muestra propuestas activas de bancos
+- **Inversor** — muestra perfiles de inversionistas activos
+
+Por defecto se activa el filtro del rol del usuario logueado.
+
+Cada tarjeta de proyecto muestra: nombre empresa, inversión semilla (banco que invirtió), inversión pública (total inversionistas independientes), monto acumulado, número de inversionistas.
+
+### Pantalla 6 — Perfil de Empresa
+Datos del perfil: Nombre, ID, RFC, Dirección. Incluye lista de proyectos publicados y botón **Agregar** para crear nuevo proyecto.
+
+### Pantalla 7 — Perfil de Inversor
+Datos del perfil: Nombre, ID, RFC, Dirección. Incluye lista "Mis inversiones" y tarjetas de proyectos disponibles.
+
+### Pantalla 8 — Perfil de Banco
+Datos del perfil: Nombre institucional, ID, RFC, Dirección. Incluye lista "Mis inversiones" y botones **Proponer** y **Solicitar**.
+
+### Pantalla 9 — Vista Detalle de Proyecto
+Descripción completa, inversión semilla, inversión pública, monto y número de inversionistas. Contacto: Gmail, Teléfono, Redes Sociales, Ubicación. Pestañas: Propuesta / Información / Datos. Botón **Aceptar Propuesta**.
+
+### Pantalla 10 — Vista Detalle de Banco
+Nombre institucional, descripción de propuesta, contacto. Pestañas: Propuesta / Información / Datos. Botones **Proponer** y **Solicitar**.
+
+### Pantalla 11 — Crear Proyecto / Crear Propuesta
+Formulario con: Texto descriptivo, Información adicional, Link externo del proyecto, Link de Facebook/redes sociales.
+
+### Pantalla 12 — Nosotros
+Descripción del objetivo de la plataforma. Información de contacto: Teléfono, Gmail, Redes Sociales.
+
+### Pantalla 13 — ChatBot
+Asistente de IA flotante accesible desde cualquier pantalla con sesión activa. Varía según el rol y responde dentro de los permisos de ese rol.
+
+### Pantalla 14 — Propuestas Recibidas
+Lista de propuestas u ofertas recibidas. Cada entrada muestra: De / Para, fecha y hora, mensaje, botón **Iniciar negociación**, botón **Rechazar propuesta**, flecha de expansión para ver detalle.
+
+### Pantalla 15 — Chat de Negociación
+Historial de mensajes del hilo de negociación. Campo de texto **Escribir:**, botón **Guardar**, botón **Enviar**, fecha y hora de cada mensaje.
+
+### Pantalla 16 — Propuestas a Enviar
+Lista de propuestas redactadas por el usuario. Cada entrada muestra: De / Para, fecha, botón **Eliminar**, botón **Guardar**, botón **Enviar**.
+
+---
+
+## Autenticación Avanzada por Rol
+
+### Perfil: Empresas (Corporate / B2B)
+
+**Modo de Autenticación Principal — e.Firma SAT (PKI):**
+- Subida del Certificado Público (.cer)
+- Subida de la Llave Privada (.key)
+- Contraseña de la llave privada
+
+**Validaciones en Backend:**
+- Comprobación matemática de la cadena de confianza con el Certificado Raíz del SAT
+- Extracción automática del RFC corporativo y Razón Social desde el .cer
+- Verificación del estatus contra la Lista de Certificados Revocados (LCR)
+
+**Control de Acceso:**
+- MFA Obligatorio: Código TOTP dinámico (Google Authenticator, Microsoft Authenticator o YubiKey)
+- RBAC interno: separación de permisos dentro del panel (Rol Lectura/Finanzas, Rol Firmante/Representante Legal, Rol Operador)
+
+---
+
+### Perfil: Inversores Independientes (Personas Físicas / Retail)
+
+**Modo de Autenticación Principal (el usuario elige):**
+- **Passkeys / WebAuthn (Recomendado):** Login biométrico directo desde el dispositivo (FaceID, Huella dactilar, Windows Hello o PIN)
+- **Credencial Tradicional + MFA:** Email/Usuario + Contraseña mínimo 12 caracteres (mayúsculas, minúsculas, números y símbolos)
+
+**Seguridad Obligatoria:**
+- 2FA/MFA: Aplicación de autenticación TOTP (se desaconseja SMS por riesgo de SIM Swapping)
+- Verificación de Dispositivo Conocido: si el login se detecta desde navegador o ubicación inusual, se envía notificación Push o magic link al correo registrado
+
+**Prerrequisito para Operar (Post-Login):**
+- Estatus KYC Validado: para ejecutar transacciones la cuenta debe haber completado análisis de documento de identidad (INE/Pasaporte) con prueba de vida (liveness test)
+
+---
+
+### Perfil: Bancos e Instituciones Financieras (Institutional)
+
+**Modo de Autenticación Principal:**
+- Autenticación Mutua TLS (mTLS): verificación técnica a nivel de red donde la plataforma y la infraestructura del banco validan mutuamente sus certificados SSL/TLS antes de mostrar el login
+- Credenciales de Alta Seguridad: ID institucional + Contraseña compleja o Token criptográfico de hardware
+
+**Seguridad Perimetral:**
+- IP Whitelisting: solo se permite acceso desde rangos de IPs estáticas institucionales previamente registradas
+- Tokens de sesión JWT con firmas DPoP, expiración máxima 3-5 minutos
+- Cierre de sesión automático por inactividad
+- Bloqueo inmediato ante cualquier cambio de IP o alteración de cabeceras HTTP
+
+---
+
+### Capas Transversales de Seguridad (Todos los Roles)
+
+- **Autenticación Adaptativa:** evaluación en tiempo real de patrones de comportamiento (horario, ubicación, tipo de dispositivo)
+- **Protección contra Fuerza Bruta:** bloqueo temporal de cuenta/IP tras 3-5 intentos fallidos consecutivos
+- **Cifrado en Tránsito y Reposo:** HTTPS con TLS 1.3 y directivas HSTS activas
+
+---
+
+### Sub-Tarea 13 — Autenticación Avanzada por Rol
+
+**Estado:** [ ] pending
+
+**Intent**
+Reemplazar el sistema de autenticación base JWT/bcrypt por los mecanismos de seguridad específicos de cada rol: e.Firma SAT para empresas, Passkeys/WebAuthn para inversores y mTLS con IP Whitelist para bancos. Agregar capas transversales de seguridad.
+
+**Expected Outcomes**
+- Empresas se autentican subiendo su certificado .cer y llave .key con validación contra SAT
+- Inversores pueden usar Passkey biométrico o email+contraseña con TOTP
+- Bancos usan mTLS con restricción por IP Whitelist y tokens DPoP de 3-5 min
+- Rate limiting activo en todos los endpoints de autenticación
+- TLS 1.3 + HSTS configurado en producción
+
+**Todo List**
+- [ ] Implementar parser de e.Firma SAT: recibir .cer y .key, validar cadena de confianza, extraer RFC y Razón Social
+- [ ] Integrar verificación contra LCR (Lista de Certificados Revocados) del SAT
+- [ ] Implementar TOTP MFA con `otplib` para empresas y como opción para inversores
+- [ ] Implementar WebAuthn/Passkeys con `@simplewebauthn/server` para inversores
+- [ ] Implementar verificación de dispositivo conocido: guardar huella de navegador+IP, enviar magic link si cambia
+- [ ] Implementar flujo KYC básico para inversores: subida de INE/Pasaporte y marcado de estatus validado
+- [ ] Implementar IP Whitelist para bancos: tabla `banco_ips_autorizadas` en BD, validar en cada request
+- [ ] Configurar tokens JWT DPoP de 3-5 min para sesiones de banco
+- [ ] Agregar cierre de sesión automático por inactividad para bancos
+- [ ] Implementar rate limiting con `@nestjs/throttler`: max 5 intentos por IP en 15 minutos
+- [ ] Configurar TLS 1.3 y cabeceras HSTS en deploy de Railway/Vercel
+- [ ] Agregar RBAC interno de empresa: sub-roles Lectura, Firmante, Operador dentro del mismo perfil de empresa
+
+**Relevant Context**
+- La validación de e.Firma requiere acceso al Certificado Raíz del SAT (descargable de sat.gob.mx)
+- WebAuthn funciona solo en HTTPS — no funciona en localhost sin configuración especial
+- El IP Whitelisting de bancos se gestiona desde el panel Admin
+
+---
+
+### Sub-Tarea 14 — Frontend Completo (ST-10 ampliada)
+
+**Estado:** [ ] pending
+
+**Intent**
+Construir las 16 pantallas del diseño visual con Next.js 14, conectadas al backend completo, incluyendo los nuevos flujos de autenticación por rol, barra de búsqueda global, filtros del inicio, chat de negociación y ChatBot flotante.
+
+**Expected Outcomes**
+- Las 16 pantallas del diseño implementadas y funcionales
+- Autenticación visual diferenciada por rol (e.Firma para empresa, Passkey para inversor, mTLS para banco)
+- Pantalla de selección de rol que aparece una sola vez post-registro
+- Filtros Empresa/Banco/Inversor en el inicio con botón iluminado activo
+- Tarjetas de proyecto con inversión semilla, inversión pública y contador de inversionistas
+- Chat de negociación funcional entre las partes
+- ChatBot flotante en todos los dashboards
+- Barra de búsqueda global con resultados en tiempo real
+- Badge de notificaciones con polling cada 30 segundos
+
+**Todo List**
+- [ ] Pantalla 1: Selección de rol visual (Banco/Empresa/Cliente) — mostrar una sola vez con flag en localStorage + BD
+- [ ] Pantalla 2: Landing pública con fondo personalizable, botones Registrarme/Iniciar Sesión
+- [ ] Pantalla 3: Login diferenciado por rol (e.Firma uploader para empresa, Passkey/email para inversor, credencial institucional para banco)
+- [ ] Pantalla 4: Crear cuenta con formulario según rol + campo de token del Admin
+- [ ] Pantalla 5: Inicio con filtros Empresa/Banco/Inversor iluminados, tarjetas con inversión semilla e inversión pública
+- [ ] Pantalla 6: Perfil Empresa con lista de proyectos y botón Agregar
+- [ ] Pantalla 7: Perfil Inversor con Mis inversiones y tarjetas disponibles
+- [ ] Pantalla 8: Perfil Banco con Mis inversiones, botones Proponer y Solicitar
+- [ ] Pantalla 9: Vista detalle de proyecto con pestañas Propuesta/Información/Datos y botón Aceptar Propuesta
+- [ ] Pantalla 10: Vista detalle de banco con botones Proponer y Solicitar
+- [ ] Pantalla 11: Formulario Crear Proyecto/Propuesta con campo de redes sociales y link externo
+- [ ] Pantalla 12: Sección Nosotros con descripción de la plataforma y datos de contacto
+- [ ] Pantalla 13: ChatBot flotante con historial de sesión por rol
+- [ ] Pantalla 14: Propuestas Recibidas con botones Iniciar negociación y Rechazar
+- [ ] Pantalla 15: Chat de Negociación con historial de mensajes, campo Escribir, botones Guardar/Enviar
+- [ ] Pantalla 16: Propuestas a Enviar con botones Eliminar/Guardar/Enviar
+- [ ] Componente `<BarraBusqueda />` global con resultados en tiempo real
+- [ ] Componente `<NotificacionesBadge />` con polling cada 30 segundos
+- [ ] Middleware Next.js que redirige por rol al dashboard correcto post-login
+
+**Relevant Context**
+- Usar shadcn/ui para tablas, formularios, badges, dialogs, toasts y tabs
+- El campo "Donadores" del PDF se mapea a `total_invertido` e inversionistas en el modelo de datos
+- Los links de redes sociales del formulario de proyecto requieren agregar campo `redes_url` en la tabla `proyectos` de Prisma
+
+---
+
+## Orden de Ejecución Actualizado
 
 ```
-Sub-Tarea 1  → Sub-Tarea 2  → Sub-Tarea 3  → Sub-Tarea 4
-     ↓                                              ↓
-Sub-Tarea 5 ──────────────────────────────── Sub-Tarea 6
-     ↓                                              ↓
-Sub-Tarea 7 (Notificaciones — depende de 5 y 6)
-     ↓
-Sub-Tarea 8 (CMS — independiente)
-Sub-Tarea 9 (Agentes IA — depende de 2, 4, 5, 6)
-     ↓
-Sub-Tarea 10 (Frontend — integra todo)
-Sub-Tarea 11 (Admin — depende de 2, 3, 8)
-     ↓
-Sub-Tarea 12 (Testing y Deploy — al final)
+ST-1 → ST-2 → ST-3 → ST-4 → ST-5 → ST-6 → ST-7 → ST-8 → ST-9 → ST-11
+                                                                      ↓
+                                                              ST-13 (Auth avanzada)
+                                                                      ↓
+                                                              ST-14 (Frontend completo)
+                                                                      ↓
+                                                              ST-12 (Testing y Deploy)
 ```
